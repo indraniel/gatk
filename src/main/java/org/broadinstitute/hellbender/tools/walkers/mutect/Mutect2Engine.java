@@ -273,7 +273,7 @@ public final class Mutect2Engine implements AssemblyRegionEvaluator {
         final ReadPileup pileup = context.getBasePileup();
         final ReadPileup tumorPileup = pileup.getPileupForSample(tumorSample, header);
         final List<Byte> tumorAltQuals = altQuals(tumorPileup, refBase, MTAC.initialPCRErrorQual);
-        final double tumorLog10Odds = MathUtils.logToLog10(lnLikelihoodRatio(tumorPileup.size()-tumorAltQuals.size(), tumorAltQuals));
+        final double tumorLog10Odds = MathUtils.logToLog10(lnLikelihoodRatio(tumorPileup.size(), tumorAltQuals));
 
         if (tumorLog10Odds < MTAC.getInitialLod()) {
             return new ActivityProfileState(refInterval, 0.0);
@@ -349,7 +349,8 @@ public final class Mutect2Engine implements AssemblyRegionEvaluator {
     }
 
     // this implements the isActive() algorithm described in docs/mutect/mutect.pdf
-    private static double lnLikelihoodRatio(final int refCount, final List<Byte> altQuals) {
+    private static double lnLikelihoodRatio(final int totalCount, final List<Byte> altQuals) {
+        final int refCount = totalCount - altQuals.size();
         final double beta = refCount + 1;
         final double alpha = altQuals.size() + 1;
         final double digammaAlpha = Gamma.digamma(alpha);
@@ -374,6 +375,32 @@ public final class Mutect2Engine implements AssemblyRegionEvaluator {
         }).sum();
 
         return result;
+
+    }
+
+    // same as above but with a constant error probability for several alts
+    public static double lnLikelihoodRatio(final int totalCount, final int altCount, final double errorProbability) {
+        final int refCount = totalCount - altCount;
+        final double beta = refCount + 1;
+        final double alpha = altCount + 1;
+        final double digammaAlpha = Gamma.digamma(alpha);
+        final double digammaBeta = Gamma.digamma(beta);
+        final double digammaAlphaPlusBeta = Gamma.digamma(alpha + beta);
+        final double lnRho = digammaBeta - digammaAlphaPlusBeta;
+        final double rho = FastMath.exp(lnRho);
+        final double lnTau = digammaAlpha - digammaAlphaPlusBeta;
+        final double tau = FastMath.exp(lnTau);
+
+        final double betaEntropy = Beta.logBeta(alpha, beta) - (alpha - 1)*digammaAlpha - (beta-1)*digammaBeta + (alpha + beta - 2)*digammaAlphaPlusBeta;
+
+        final double epsilon = errorProbability;
+        final double gamma = rho * epsilon / (rho * epsilon + tau * (1-epsilon));
+        final double bernoulliEntropy = -gamma * FastMath.log(gamma) - (1-gamma)*FastMath.log1p(-gamma);
+        final double lnEpsilon = FastMath.log(epsilon);
+        final double lnOneMinusEpsilon = FastMath.log1p(epsilon);
+        final double perReadTerm =  gamma * (lnRho + lnEpsilon) + (1-gamma)*(lnTau + lnOneMinusEpsilon) - lnEpsilon + bernoulliEntropy;
+
+        return betaEntropy +  refCount * lnRho + perReadTerm * altCount;
 
     }
 
