@@ -1943,5 +1943,6 @@ class ModeledSegmentsCaller:
 
         var_normal_cr = total_var_cr_normal / total_weight_normal
         std_dev_normal_cr = var_normal_cr**0.5
+        std_dev_normal_cr = max([std_dev_normal_cr, (self.__normal_range_cr[1] - self.__normal_range_cr[0]) / 10, 0.033])
 
         return [avg_normal_cr, std_dev_normal_cr]
