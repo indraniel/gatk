@@ -588,9 +588,14 @@ public final class GenomicsDBImport extends GATKTool {
         final List<String> sampleNames = new ArrayList<>(sampleNametoPath.keySet());
         for(int i = lowerSampleIndex; i < sampleNametoPath.size() && i < lowerSampleIndex+batchSize; ++i) {
             final String sampleName = sampleNames.get(i);
+            final Path variantPathID = sampleNametoPath.get(sampleName);
+	    logger.info("(idas-0) Processing SampleName: " + sampleName);
+	    logger.info("(idas-0) Reading GVCF: " + variantPathID.toUri());
             futures.put(sampleName, inputPreloadExecutorService.submit(() -> {
                 final Path variantPath = sampleNametoPath.get(sampleName);
                 try {
+		    logger.info("(idas-1) Processing SampleName: " + sampleName);
+		    logger.info("(idas-1) Reading GVCF: " + variantPath.toUri());
                     return new InitializedQueryWrapper(getReaderFromPath(variantPath), intervals.get(0));
                 } catch (final IOException e) {
                     throw new UserException.CouldNotReadInputFile("Couldn't read file: " + variantPath.toUri(), e);
@@ -618,6 +623,9 @@ public final class GenomicsDBImport extends GATKTool {
         final List<String> sampleNames = new ArrayList<>(sampleNameToPath.keySet());
         for(int i = lowerSampleIndex; i < sampleNameToPath.size() && i < lowerSampleIndex+batchSize; ++i) {
             final String sampleName = sampleNames.get(i);
+            final Path variantPathID = sampleNameToPath.get(sampleName);
+	    logger.info("(idas-3) Processing SampleName: " + sampleName);
+	    logger.info("(idas-3) Reading GVCF: " + variantPathID.toUri());
             final AbstractFeatureReader<VariantContext, LineIterator> reader = getReaderFromPath(sampleNameToPath.get(sampleName));
             sampleToReaderMap.put(sampleName, reader);
         }
